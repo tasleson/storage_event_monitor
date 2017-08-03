@@ -1,0 +1,7 @@
+[package]
+name = "storage_event_monitor"
+version = "0.1.0"
+authors = ["Tony Asleson <tasleson@redhat.com>"]
+
+[dependencies]
+sdjournal = { git = "https://github.com/tasleson/sdjournal" }

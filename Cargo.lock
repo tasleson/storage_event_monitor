@@ -1,0 +1,23 @@
+[root]
+name = "storage_event_monitor"
+version = "0.1.0"
+dependencies = [
+ "sdjournal 0.1.0 (git+https://github.com/tasleson/sdjournal)",
+]
+
+[[package]]
+name = "libc"
+version = "0.2.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "sdjournal"
+version = "0.1.0"
+source = "git+https://github.com/tasleson/sdjournal#acf54c2f9f6d68e83c6c2fbb4d4f76f4e9269ef9"
+dependencies = [
+ "libc 0.2.29 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[metadata]
+"checksum libc 0.2.29 (registry+https://github.com/rust-lang/crates.io-index)" = "8a014d9226c2cc402676fbe9ea2e15dd5222cd1dd57f576b5b283178c944a264"
+"checksum sdjournal 0.1.0 (git+https://github.com/tasleson/sdjournal)" = "<none>"
