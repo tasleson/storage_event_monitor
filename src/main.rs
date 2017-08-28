@@ -7,6 +7,7 @@ extern crate libc;
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
+use std::collections::HashMap;
 
 use regex::Regex;
 use std::fs;
@@ -71,12 +72,13 @@ fn id_for_device_path(device_path: &str) -> Option<String> {
     None
 }
 
-fn process_entry(log_entry: String) {
+fn process_entry(journal_entry: HashMap<String, String>) {
     // Take a look at the message and filter for storage messages we are interested in.
     // There are lots of different way to search, lets start simple.
     //
     // This is horribly error prone
     // and we really need to add structured data to the error messages themselves.
+    let log_entry = journal_entry.get("MESSAGE").unwrap();
     let log_entry_str = log_entry.as_str();
     let message = String::from("Storage error addendum");
     let source = String::from("kernel");
@@ -87,6 +89,14 @@ fn process_entry(log_entry: String) {
     let mut details = String::from("");
     let mut state = String::from("unknown");
     let mut priority: u8 = 0;
+
+    /*
+    let kernel_device_id = journal_entry.get("_KERNEL_DEVICE").unwrap();
+
+    if kernel_device_id.len() > 0 {
+        println!("**** _KERNEL_DEVICE = {}", kernel_device_id);
+    }
+    */
 
     /*
 
@@ -158,7 +168,7 @@ fn main() {
     // them more than once, if we are restarted quickly for some reason.
     for i in journal {
         match i {
-            Ok(msg) => process_entry(msg),
+            Ok(journal_entry) => process_entry(journal_entry),
             Err(e) => {
                 println!("Error retrieving the journal entry: {}", e);
                 break;
