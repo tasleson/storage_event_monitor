@@ -80,8 +80,6 @@ fn process_entry(journal_entry: HashMap<String, String>) {
     //
     // This is horribly error prone
     // and we really need to add structured data to the error messages themselves.
-    let log_entry = journal_entry.get("MESSAGE").unwrap();
-    let log_entry_str = log_entry.as_str();
     let message = String::from("Storage error addendum");
     let source = String::from("kernel");
     let mut source_man = String::from("");
@@ -92,13 +90,20 @@ fn process_entry(journal_entry: HashMap<String, String>) {
     let mut state = String::from("unknown");
     let mut priority: u8 = 0;
 
-    /*
-    let kernel_device_id = journal_entry.get("_KERNEL_DEVICE").unwrap();
-
-    if kernel_device_id.len() > 0 {
-        println!("**** _KERNEL_DEVICE = {}", kernel_device_id);
+    if !journal_entry.contains_key("MESSAGE") {
+        // Not sure how this happens, but apparently it does!
+        return;
     }
-    */
+
+    let log_entry = journal_entry.get("MESSAGE").unwrap();
+    let log_entry_str = log_entry.as_str();
+
+    // Check to see if this entry is one we may have created
+    if journal_entry.contains_key("MESSAGE_ID") {
+        if journal_entry.get("MESSAGE_ID").unwrap() == MSG_STORAGE_ID {
+            return;
+        }
+    }
 
     /*
 
