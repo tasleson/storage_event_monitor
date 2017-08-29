@@ -16,6 +16,8 @@ use libc::size_t;
 use std::os::raw::c_char;
 use std::path::Path;
 
+pub static MSG_STORAGE_ID: &'static str = "3183267b90074a4595e91daef0e01462";
+
 fn read_link(file_path: &str) -> String {
     let mut buffer: [u8; 4096] = [0; 4096];
     let file_name = CString::new(file_path).unwrap();
@@ -144,7 +146,8 @@ fn process_entry(journal_entry: HashMap<String, String>) {
 
     // Log the additional information to the journal
     if log {
-        let result = sdjournal::send_journal_basic(message, source, source_man, device, device_id,
+        let result = sdjournal::send_journal_basic(MSG_STORAGE_ID,
+                                                   message, source, source_man, device, device_id,
                                                    state, priority, details);
 
         match result {
