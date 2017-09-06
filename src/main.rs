@@ -8,6 +8,7 @@ extern crate libc;
 extern crate lazy_static;
 extern crate regex;
 use std::collections::HashMap;
+use std::process::Command;
 
 use regex::Regex;
 use std::fs;
@@ -17,6 +18,15 @@ use std::os::raw::c_char;
 use std::path::Path;
 
 pub static MSG_STORAGE_ID: &'static str = "3183267b90074a4595e91daef0e01462";
+
+
+fn udev_settle() {
+    Command::new("/usr/bin/udevadm")
+        .arg("settle")
+        .spawn()
+        .expect("Failed to do a udev settle");
+}
+
 
 fn read_link(file_path: &str) -> String {
     let mut buffer: [u8; 4096] = [0; 4096];
@@ -37,13 +47,12 @@ fn read_link(file_path: &str) -> String {
 fn id_for_device_path(device_path: &str) -> Option<String> {
     // Open the directory /dev/disk/by-id and find the device and return the device path, the
     // device path can be full path, eg. '/dev/sda' or just 'sda'
-
-    // TODO: We should probably do a udev settle in here to make sure we aren't looking for the id
-    // file symlink when udev rules are not done processing
     //
     // TODO: We can have multiple entries for the same device in the same directory using different
     // identifiers, we need to account for this, maybe we should build a string that contains all
     // of the different identifiers, or prioritize the results and pick the most appropriate?
+
+    udev_settle();
 
     let block_uuids = fs::read_dir("/dev/disk/by-id").unwrap();
     let mut device = device_path;
