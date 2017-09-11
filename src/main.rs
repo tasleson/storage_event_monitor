@@ -10,14 +10,42 @@ extern crate regex;
 use std::collections::HashMap;
 use std::process::Command;
 
+extern crate libudev;
+
 use regex::Regex;
 use std::fs;
 use std::ffi::CString;
+use std::ptr;
 use libc::size_t;
 use std::os::raw::c_char;
 use std::path::Path;
+use std::io::Error;
+use std::os::unix::io::{AsRawFd};
 
 pub static MSG_STORAGE_ID: &'static str = "3183267b90074a4595e91daef0e01462";
+
+use libc::{c_void,c_int,c_short,c_ulong};
+
+#[repr(C)]
+struct pollfd {
+    fd: c_int,
+    events: c_short,
+    revents: c_short,
+}
+
+#[repr(C)]
+struct sigset_t {
+    __private: c_void
+}
+
+#[allow(non_camel_case_types)]
+type nfds_t = c_ulong;
+
+const POLLIN: c_short = 0x0001;
+
+extern "C" {
+    fn ppoll(fds: *mut pollfd, nfds: nfds_t, timeout_ts: *mut libc::timespec, sigmask: *const sigset_t) -> c_int;
+}
 
 
 fn udev_settle() {
@@ -174,21 +202,68 @@ fn process_entry(journal_entry: HashMap<String, String>) {
 }
 
 fn main() {
-    let mut journal = sdjournal::Journal::new().expect("Failed to open systemd journal");
 
+    // Setup the connection for journal entries
+    let mut journal = sdjournal::Journal::new().expect("Failed to open systemd journal");
     // Jump to the end as we cannot annotate old journal entries.
+    journal.timeout_us = 0;
     journal.seek_tail().expect("Unable to seek to end of journal!");
 
-    // The iterator will block until we have a journal entry to read, note that even though
-    // we seek to the end we will still have some entries to read, which could be problematic if
-    // they happen to be entries we are interested in as we could end up adding addendum data for
-    // them more than once, if we are restarted quickly for some reason.
-    for i in journal {
-        match i {
-            Ok(journal_entry) => process_entry(journal_entry),
-            Err(e) => {
-                println!("Error retrieving the journal entry: {}", e);
-                break;
+
+    // Setup a connection for udev events for block devices
+    let context = libudev::Context::new().unwrap();
+    let mut monitor = libudev::Monitor::new(&context).unwrap();
+    monitor.match_subsystem("block").unwrap();
+    let mut udev = monitor.listen().unwrap();
+
+    let mut fds = vec!( pollfd { fd: udev.as_raw_fd(), events: POLLIN, revents: 0 },
+                        pollfd { fd: journal.as_raw_fd(), events: journal.get_events_bit_mask(), revents: 0 });
+
+    loop {
+        let result = unsafe { ppoll((&mut fds[..]).as_mut_ptr(), fds.len() as nfds_t,
+                                    ptr::null_mut(), ptr::null()) };
+
+        if result < 0 {
+            println!("ppoll: {:?}", Error::last_os_error());
+            break;
+        }
+
+        if fds[0].revents != 0 {
+            // Process udev
+            loop {
+                match udev.receive_event() {
+                    Some(event) => {
+                        println!("{}: {} {} (subsystem={}, sysname={}, devtype={})",
+                                 event.sequence_number(),
+                                 event.event_type(),
+                                 event.syspath().to_str().unwrap_or("---"),
+                                 event.subsystem().to_str().unwrap_or("unknown subsystem"),
+                                 event.sysname().to_str().unwrap_or(""),
+                                 event.devtype().map_or("", |s| { s.to_str().unwrap_or("") }));
+                    }
+                    None => {
+                        break;
+                    }
+                };
+            }
+        }
+
+        if fds[1].revents != 0 {
+            // Process journal entries, need to figure out why we cannot use the iterator as we
+            // are getting an error from the borrow checker about journal getting moved!
+            loop {
+                let entry = journal.get_next();
+                match entry {
+                    Some(entry) => {
+                        match entry {
+                            Ok(entry) => process_entry(entry),
+                            Err(e) => println!("Error retrieving the journal entry: {}", e),
+                        }
+                    }
+                    None => {
+                        break;
+                    }
+                }
             }
         }
     }

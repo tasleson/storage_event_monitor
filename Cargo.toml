@@ -9,3 +9,4 @@ sdjournal = { git = "https://github.com/tasleson/sdjournal" }
 libc = "0.2.28"
 regex = "0.2"
 lazy_static = "0.2.8"
+libudev = "0.2"
