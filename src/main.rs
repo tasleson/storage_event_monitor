@@ -16,7 +16,7 @@ use regex::Regex;
 use std::fs;
 use std::ffi::CString;
 use std::ptr;
-use libc::size_t;
+use libc::{size_t, POLLIN, POLLERR, POLLHUP, POLLNVAL};
 use std::os::raw::c_char;
 use std::path::Path;
 use std::io::Error;
@@ -40,8 +40,6 @@ struct sigset_t {
 
 #[allow(non_camel_case_types)]
 type nfds_t = c_ulong;
-
-const POLLIN: c_short = 0x0001;
 
 extern "C" {
     fn ppoll(fds: *mut pollfd, nfds: nfds_t, timeout_ts: *mut libc::timespec, sigmask: *const sigset_t) -> c_int;
@@ -263,6 +261,12 @@ fn main() {
         }
 
         if fds[0].revents != 0 {
+
+            if fds[0].revents & (POLLERR|POLLHUP|POLLNVAL) != 0 {
+                println!("Error in udev revents {}", fds[0].revents);
+                break;
+            }
+
             // Process udev
             loop {
                 match udev.receive_event() {
@@ -283,6 +287,12 @@ fn main() {
         }
 
         if fds[1].revents != 0 {
+
+            if fds[1].revents & (POLLERR|POLLHUP|POLLNVAL) != 0 {
+                println!("Error in journal revents {}", fds[1].revents);
+                break;
+            }
+
             // Process journal entries, need to figure out why we cannot use the iterator as we
             // are getting an error from the borrow checker about journal getting moved!
             loop {
