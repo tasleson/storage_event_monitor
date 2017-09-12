@@ -215,7 +215,11 @@ fn process_entry(journal_entry: HashMap<String, String>) {
         let m = UA_MSG.captures(log_entry_str).unwrap();
         device = String::from(&m[1]);
 
-        //TODO: We need to convert from 0:0:0:0 -> to WWN, SN etc., whats the best way to do that...
+        let device_id_lookup = id_for_path_id(device.as_str());
+        device_id = match device_id_lookup {
+            None => String::from(""),
+            Some(ret) => ret,
+        };
     }
 
     // Log the additional information to the journal
