@@ -13,11 +13,8 @@ use std::process::Command;
 extern crate libudev;
 
 use regex::Regex;
-use std::fs;
-use std::ffi::CString;
 use std::ptr;
-use libc::{size_t, POLLIN, POLLERR, POLLHUP, POLLNVAL};
-use std::os::raw::c_char;
+use libc::{POLLIN, POLLERR, POLLHUP, POLLNVAL};
 use std::path::Path;
 use std::io::Error;
 use std::os::unix::io::{AsRawFd};
@@ -45,7 +42,6 @@ extern "C" {
     fn ppoll(fds: *mut pollfd, nfds: nfds_t, timeout_ts: *mut libc::timespec, sigmask: *const sigset_t) -> c_int;
 }
 
-
 fn udev_settle() {
     Command::new("/usr/bin/udevadm")
         .arg("settle")
@@ -53,65 +49,14 @@ fn udev_settle() {
         .expect("Failed to do a udev settle");
 }
 
-
-fn read_link(file_path: &str) -> String {
-    let mut buffer: [u8; 4096] = [0; 4096];
-    let file_name = CString::new(file_path).unwrap();
-
-    let res = unsafe {
-        libc::readlink(file_name.as_ptr(),
-                       buffer.as_mut_ptr() as *mut c_char,
-                       buffer.len() as size_t)
-    };
-    if res == -1 {
-        // TODO: Could we handle this better?
-        return String::new();
-    }
-    String::from_utf8(buffer[0..(res as usize)].to_vec()).unwrap()
+enum IdLookup {
+    DevNode = 1,
+    PathId = 2,
 }
 
-fn id_for_device_path(device_path: &str) -> Option<String> {
-    // Open the directory /dev/disk/by-id and find the device and return the device path, the
-    // device path can be full path, eg. '/dev/sda' or just 'sda'
-    //
-    // TODO: We can have multiple entries for the same device in the same directory using different
-    // identifiers, we need to account for this, maybe we should build a string that contains all
-    // of the different identifiers, or prioritize the results and pick the most appropriate?
-
+fn id_lookup(search_name: &str, mode: IdLookup) -> Option<String> {
     udev_settle();
 
-    let block_uuids = fs::read_dir("/dev/disk/by-id").unwrap();
-    let mut device = device_path;
-
-    for file in block_uuids {
-        // We have the file, do a readlink and see what it's pointing too!
-        if let Ok(file) = file {
-            let block_device = read_link(file.path().to_str().unwrap());
-
-            // Check to see if we have a '/' in the device_path, if we do just get the name
-            if device.contains('/') {
-                let name = Path::new(device_path).file_name();
-
-                match name {
-                    None => device = "",
-                    Some(name) => device = name.to_str().unwrap(),
-                }
-            }
-
-            if block_device.len() >= device.len() {
-                if block_device.ends_with(device) {
-                    return Some(String::from(file.file_name().to_str().unwrap()));
-                }
-            }
-        }
-    }
-
-    None
-}
-
-/// Given a path id eg. 0000:3e:00.0 find the WWID, SN or something fairly durable.
-/// Note: Make sure to remove any leading identifiers if we are pulling this out of a journal entry
-fn id_for_path_id(device_id: &str) -> Option<String> {
     let context = libudev::Context::new().unwrap();
 
     let mut enumerator = libudev::Enumerator::new(&context).unwrap();
@@ -120,8 +65,24 @@ fn id_for_path_id(device_id: &str) -> Option<String> {
     enumerator.match_property("DEVTYPE", "disk").unwrap();
 
     for device in enumerator.scan_devices().unwrap() {
-        let str_path = device.syspath().to_str().unwrap();
-        if str_path.contains(device_id) {
+        let mut found = false;
+
+        match mode {
+            IdLookup::PathId => {
+                let str_path = device.syspath().to_str().unwrap();
+                if str_path.contains(search_name) {
+                    found = true;
+                }
+            },
+            IdLookup::DevNode => {
+                let dev_node = String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or(""));
+                if dev_node == search_name || dev_node.ends_with(search_name){
+                    found = true;
+                }
+            },
+        }
+
+        if found {
             // We may not have a very good durable name for some devices, what to do ...
             let mut wwid = device.property_value("ID_WWN");
             match wwid {
@@ -141,6 +102,17 @@ fn id_for_path_id(device_id: &str) -> Option<String> {
     }
 
     None
+
+}
+
+fn id_for_devnode(dev_name: &str) -> Option<String> {
+    id_lookup(dev_name, IdLookup::DevNode)
+}
+
+/// Given a path id eg. 0000:3e:00.0 find the WWID, SN or something fairly durable.
+/// Note: Make sure to remove any leading identifiers if we are pulling this out of a journal entry
+fn id_for_path_id(device_id: &str) -> Option<String> {
+    id_lookup(device_id, IdLookup::PathId)
 }
 
 fn process_entry(journal_entry: HashMap<String, String>) {
@@ -198,7 +170,7 @@ fn process_entry(journal_entry: HashMap<String, String>) {
 
         let m = TARGET_ERRORS.captures(log_entry_str).unwrap();
         device = String::from(&m[1]);
-        let device_id_lookup = id_for_device_path(device.as_str());
+        let device_id_lookup = id_for_devnode(device.as_str());
 
         device_id = match device_id_lookup {
             None => String::from(""),
