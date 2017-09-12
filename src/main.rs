@@ -111,6 +111,40 @@ fn id_for_device_path(device_path: &str) -> Option<String> {
     None
 }
 
+/// Given a path id eg. 0000:3e:00.0 find the WWID, SN or something fairly durable.
+/// Note: Make sure to remove any leading identifiers if we are pulling this out of a journal entry
+fn id_for_path_id(device_id: &str) -> Option<String> {
+    let context = libudev::Context::new().unwrap();
+
+    let mut enumerator = libudev::Enumerator::new(&context).unwrap();
+
+    enumerator.match_subsystem("block").unwrap();
+    enumerator.match_property("DEVTYPE", "disk").unwrap();
+
+    for device in enumerator.scan_devices().unwrap() {
+        let str_path = device.syspath().to_str().unwrap();
+        if str_path.contains(device_id) {
+            // We may not have a very good durable name for some devices, what to do ...
+            let mut wwid = device.property_value("ID_WWN");
+            match wwid {
+                Some(w) => return Some(String::from(w.to_str().unwrap())),
+                None => {
+                    wwid = device.property_value("ID_SERIAL_SHORT");
+                    match wwid {
+                        Some(w) => return Some(String::from(w.to_str().unwrap())),
+                        None => ()
+                    }
+                }
+            }
+
+            // If we don't have anything useful, return None
+            break;
+        }
+    }
+
+    None
+}
+
 fn process_entry(journal_entry: HashMap<String, String>) {
     // Take a look at the message and filter for storage messages we are interested in.
     // There are lots of different way to search, lets start simple.
