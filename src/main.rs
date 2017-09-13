@@ -211,8 +211,47 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     println!("DEBUG: JOURNAL_ENTRY({})", log_entry);
 }
 
-fn main() {
+fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: String) {
+    let result = sdjournal::send_journal_basic(MSG_STORAGE_ID,
+                                               format!("Annotation: Storage device {}", msg),
+                                               String::from("storage_event_monitor"),
+                                               String::from(""),
+                                               String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
+                                               durable_name,
+                                               String::from("discovery"),
+                                               sdjournal::JournalPriority::Info,
+                                               String::from(""));
 
+        match result {
+            Ok(_) => (),
+            Err(result) => println!("Error adding journal entry: {}", result),
+        }
+}
+
+// We will focus on block devices that are added or removed, when this happens we will add a journal
+// entry that adds more information about the device, mainly the durable name.
+fn process_udev_entry(event: &libudev::Event) {
+    match event.event_type() {
+        libudev::EventType::Add => {
+            let durable_name = fetch_durable_name(event.device());
+
+            match durable_name {
+                Some(name) => {
+                    // Add annotated journal entry
+                    log_disk_add_remove(event.device(), "added", name);
+                }
+                None => ()
+            }
+        }
+        libudev::EventType::Remove => {
+            let durable_name = fetch_durable_name(event.device()).unwrap_or(String::from("Unknown"));
+            log_disk_add_remove(event.device(), "removed", durable_name);
+        }
+        _ => ()
+    }
+}
+
+fn main() {
     // Setup the connection for journal entries
     let mut journal = sdjournal::Journal::new().expect("Failed to open systemd journal");
     // We never want to block, so set the timeout to 0
@@ -251,6 +290,7 @@ fn main() {
             loop {
                 match udev.receive_event() {
                     Some(event) => {
+                        process_udev_entry(&event);
                         println!("{}: {} {} (subsystem={}, sysname={}, devtype={})",
                                  event.sequence_number(),
                                  event.event_type(),
