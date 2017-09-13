@@ -55,6 +55,21 @@ enum IdLookup {
     PathId = 2,
 }
 
+fn fetch_durable_name(device: &libudev::Device) -> Option<String> {
+    let mut wwid = device.property_value("ID_WWN");
+    match wwid {
+        Some(w) => return Some(String::from(w.to_str().unwrap())),
+        None => {
+            wwid = device.property_value("ID_SERIAL_SHORT");
+            match wwid {
+                Some(w) => return Some(String::from(w.to_str().unwrap())),
+                None => ()
+            }
+        }
+    }
+    None
+}
+
 fn id_lookup(search_name: &str, mode: IdLookup) -> Option<String> {
     udev_settle();
 
@@ -85,25 +100,11 @@ fn id_lookup(search_name: &str, mode: IdLookup) -> Option<String> {
 
         if found {
             // We may not have a very good durable name for some devices, what to do ...
-            let mut wwid = device.property_value("ID_WWN");
-            match wwid {
-                Some(w) => return Some(String::from(w.to_str().unwrap())),
-                None => {
-                    wwid = device.property_value("ID_SERIAL_SHORT");
-                    match wwid {
-                        Some(w) => return Some(String::from(w.to_str().unwrap())),
-                        None => ()
-                    }
-                }
-            }
-
-            // If we don't have anything useful, return None
-            break;
+            return fetch_durable_name(&device);
         }
     }
 
     None
-
 }
 
 fn id_for_devnode(dev_name: &str) -> Option<String> {
