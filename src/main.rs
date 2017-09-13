@@ -131,7 +131,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     let mut device_id = String::new();
     let mut details = String::from("");
     let mut state = String::from("unknown");
-    let mut priority: u8 = 0;
+    let mut priority = sdjournal::JournalPriority::Critical;
 
     if !journal_entry.contains_key("MESSAGE") {
         // Not sure how this happens, but apparently it does!
@@ -167,7 +167,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     if TARGET_ERRORS.is_match(log_entry_str) {
         log = true;
         source_man = String::from("see: block/blk-core.c");
-        priority = 2;
+        priority = sdjournal::JournalPriority::Critical;
         state = String::from("failing");
 
         let m = TARGET_ERRORS.captures(log_entry_str).unwrap();
@@ -183,7 +183,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     } else if UA_MSG.is_match(log_entry_str) {
         log = true;
         source_man = String::from("see: drivers/scsi/scsi_error.c");
-        priority = 5;
+        priority = sdjournal::JournalPriority::Info;
         state = String::from("discovery");
 
         let m = UA_MSG.captures(log_entry_str).unwrap();
