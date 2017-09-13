@@ -215,15 +215,16 @@ fn main() {
 
     // Setup the connection for journal entries
     let mut journal = sdjournal::Journal::new().expect("Failed to open systemd journal");
-    // Jump to the end as we cannot annotate old journal entries.
+    // We never want to block, so set the timeout to 0
     journal.timeout_us = 0;
+    // Jump to the end as we cannot annotate old journal entries.
     journal.seek_tail().expect("Unable to seek to end of journal!");
 
 
     // Setup a connection for udev events for block devices
     let context = libudev::Context::new().unwrap();
     let mut monitor = libudev::Monitor::new(&context).unwrap();
-    monitor.match_subsystem("block").unwrap();
+    monitor.match_subsystem_devtype("block", "disk").unwrap();
     let mut udev = monitor.listen().unwrap();
 
     let mut fds = vec!(pollfd { fd: udev.as_raw_fd(), events: POLLIN, revents: 0 },
