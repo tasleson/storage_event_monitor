@@ -7,6 +7,7 @@ extern crate libc;
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
+
 use std::collections::HashMap;
 use std::process::Command;
 
@@ -17,11 +18,11 @@ use std::ptr;
 use libc::{POLLIN, POLLERR, POLLHUP, POLLNVAL};
 use std::path::Path;
 use std::io::Error;
-use std::os::unix::io::{AsRawFd};
+use std::os::unix::io::AsRawFd;
 
 pub static MSG_STORAGE_ID: &'static str = "3183267b90074a4595e91daef0e01462";
 
-use libc::{c_void,c_int,c_short,c_ulong};
+use libc::{c_void, c_int, c_short, c_ulong};
 
 #[repr(C)]
 struct pollfd {
@@ -73,13 +74,13 @@ fn id_lookup(search_name: &str, mode: IdLookup) -> Option<String> {
                 if str_path.contains(search_name) {
                     found = true;
                 }
-            },
+            }
             IdLookup::DevNode => {
                 let dev_node = String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or(""));
-                if dev_node == search_name || dev_node.ends_with(search_name){
+                if dev_node == search_name || dev_node.ends_with(search_name) {
                     found = true;
                 }
-            },
+            }
         }
 
         if found {
@@ -115,7 +116,7 @@ fn id_for_path_id(device_id: &str) -> Option<String> {
     id_lookup(device_id, IdLookup::PathId)
 }
 
-fn process_entry(journal_entry: HashMap<String, String>) {
+fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     // Take a look at the message and filter for storage messages we are interested in.
     // There are lots of different way to search, lets start simple.
     //
@@ -224,12 +225,14 @@ fn main() {
     monitor.match_subsystem("block").unwrap();
     let mut udev = monitor.listen().unwrap();
 
-    let mut fds = vec!( pollfd { fd: udev.as_raw_fd(), events: POLLIN, revents: 0 },
-                        pollfd { fd: journal.as_raw_fd(), events: journal.get_events_bit_mask(), revents: 0 });
+    let mut fds = vec!(pollfd { fd: udev.as_raw_fd(), events: POLLIN, revents: 0 },
+                       pollfd { fd: journal.as_raw_fd(), events: journal.get_events_bit_mask(), revents: 0 });
 
     loop {
-        let result = unsafe { ppoll((&mut fds[..]).as_mut_ptr(), fds.len() as nfds_t,
-                                    ptr::null_mut(), ptr::null()) };
+        let result = unsafe {
+            ppoll((&mut fds[..]).as_mut_ptr(), fds.len() as nfds_t,
+                  ptr::null_mut(), ptr::null())
+        };
 
         if result < 0 {
             println!("ppoll: {:?}", Error::last_os_error());
@@ -237,8 +240,7 @@ fn main() {
         }
 
         if fds[0].revents != 0 {
-
-            if fds[0].revents & (POLLERR|POLLHUP|POLLNVAL) != 0 {
+            if fds[0].revents & (POLLERR | POLLHUP | POLLNVAL) != 0 {
                 println!("Error in udev revents {}", fds[0].revents);
                 break;
             }
@@ -263,8 +265,7 @@ fn main() {
         }
 
         if fds[1].revents != 0 {
-
-            if fds[1].revents & (POLLERR|POLLHUP|POLLNVAL) != 0 {
+            if fds[1].revents & (POLLERR | POLLHUP | POLLNVAL) != 0 {
                 println!("Error in journal revents {}", fds[1].revents);
                 break;
             }
@@ -276,7 +277,7 @@ fn main() {
                 match entry {
                     Some(entry) => {
                         match entry {
-                            Ok(entry) => process_entry(entry),
+                            Ok(entry) => process_journal_entry(&entry),
                             Err(e) => println!("Error retrieving the journal entry: {}", e),
                         }
                     }
