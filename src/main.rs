@@ -123,14 +123,14 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     //
     // This is horribly error prone
     // and we really need to add structured data to the error messages themselves.
-    let message = String::from("Storage error addendum");
-    let source = String::from("kernel");
-    let mut source_man = String::from("");
+    let message = "Storage error addendum";
+    let source = "kernel";
+    let mut source_man = "";
     let mut log = false;
     let mut device = String::from("");
     let mut device_id = String::new();
     let mut details = String::from("");
-    let mut state = String::from("unknown");
+    let mut state = "unknown";
     let mut priority = sdjournal::JournalPriority::Critical;
 
     if !journal_entry.contains_key("MESSAGE") {
@@ -166,9 +166,9 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
 
     if TARGET_ERRORS.is_match(log_entry_str) {
         log = true;
-        source_man = String::from("see: block/blk-core.c");
+        source_man = "see: block/blk-core.c";
         priority = sdjournal::JournalPriority::Critical;
-        state = String::from("failing");
+        state = "failing";
 
         let m = TARGET_ERRORS.captures(log_entry_str).unwrap();
         device = String::from(&m[1]);
@@ -182,9 +182,9 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         details = format!("Device block {} is in question!", &m[3]);
     } else if UA_MSG.is_match(log_entry_str) {
         log = true;
-        source_man = String::from("see: drivers/scsi/scsi_error.c");
+        source_man = "see: drivers/scsi/scsi_error.c";
         priority = sdjournal::JournalPriority::Info;
-        state = String::from("discovery");
+        state = "discovery";
 
         let m = UA_MSG.captures(log_entry_str).unwrap();
         device = String::from(&m[1]);
@@ -199,7 +199,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     // Log the additional information to the journal
     if log {
         let result = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                   message, source, source_man, device, device_id,
+                                                   message, source, source_man, device.as_str(), device_id.as_str(),
                                                    state, priority, details);
 
         match result {
@@ -211,14 +211,14 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     println!("DEBUG: JOURNAL_ENTRY({})", log_entry);
 }
 
-fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: String) {
+fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: &str) {
     let result = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                               format!("Annotation: Storage device {}", msg),
-                                               String::from("storage_event_monitor"),
-                                               String::from(""),
-                                               String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
+                                               format!("Annotation: Storage device {}", msg).as_str(),
+                                               "storage_event_monitor",
+                                               "",
+                                               &String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
                                                durable_name,
-                                               String::from("discovery"),
+                                               "discovery",
                                                sdjournal::JournalPriority::Info,
                                                String::from(""));
 
@@ -238,14 +238,14 @@ fn process_udev_entry(event: &libudev::Event) {
             match durable_name {
                 Some(name) => {
                     // Add annotated journal entry
-                    log_disk_add_remove(event.device(), "added", name);
+                    log_disk_add_remove(event.device(), "added", name.as_str());
                 }
                 None => ()
             }
         }
         libudev::EventType::Remove => {
             let durable_name = fetch_durable_name(event.device()).unwrap_or(String::from("Unknown"));
-            log_disk_add_remove(event.device(), "removed", durable_name);
+            log_disk_add_remove(event.device(), "removed", durable_name.as_str());
         }
         _ => ()
     }
