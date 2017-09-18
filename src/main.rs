@@ -223,10 +223,10 @@ fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name
                                                sdjournal::JournalPriority::Info,
                                                String::from(""));
 
-        match result {
-            Ok(_) => (),
-            Err(result) => println!("Error adding journal entry: {}", result),
-        }
+    match result {
+        Ok(_) => (),
+        Err(result) => println!("Error adding journal entry: {}", result),
+    }
 }
 
 // We will focus on block devices that are added or removed, when this happens we will add a journal
