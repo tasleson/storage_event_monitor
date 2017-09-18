@@ -19,6 +19,7 @@ use libc::{POLLIN, POLLERR, POLLHUP, POLLNVAL};
 use std::path::Path;
 use std::io::Error;
 use std::os::unix::io::AsRawFd;
+use std::process::exit;
 
 pub static MSG_STORAGE_ID: &'static str = "3183267b90074a4595e91daef0e01462";
 
@@ -251,6 +252,13 @@ fn process_udev_entry(event: &libudev::Event) {
     }
 }
 
+fn check_revents_and_exit(revents: c_short, msg: &str) {
+    if revents & (POLLERR | POLLHUP | POLLNVAL) != 0 {
+        eprintln!("{} (0x{:X})", msg, revents);
+        exit(2);
+    }
+}
+
 fn main() {
     // Setup the connection for journal entries
     let mut journal = sdjournal::Journal::new().expect("Failed to open systemd journal");
@@ -281,10 +289,7 @@ fn main() {
         }
 
         if fds[0].revents != 0 {
-            if fds[0].revents & (POLLERR | POLLHUP | POLLNVAL) != 0 {
-                println!("Error in udev revents {}", fds[0].revents);
-                break;
-            }
+            check_revents_and_exit(fds[0].revents, "Error in udev revents");
 
             // Process udev
             loop {
@@ -307,10 +312,7 @@ fn main() {
         }
 
         if fds[1].revents != 0 {
-            if fds[1].revents & (POLLERR | POLLHUP | POLLNVAL) != 0 {
-                println!("Error in journal revents {}", fds[1].revents);
-                break;
-            }
+            check_revents_and_exit(fds[1].revents, "Error in journal revents");
 
             // Process journal entries, need to figure out why we cannot use the iterator as we
             // are getting an error from the borrow checker about journal getting moved!
