@@ -162,12 +162,20 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     Sample mdraid disk failure
     "md/raid1:md0: Disk failure on sdg1, disabling device.
 
+    Sample raid recovery start
+    md: recovery of RAID array md0
+
+    Sample raid recovery complete
+    md: md0: recovery done.
+
     */
 
     lazy_static! {
         static ref UA_MSG: Regex = Regex::new("^[a-z]+ ([0-9:]+): Warning! Received an indication that the (.+)").unwrap();
         static ref TARGET_ERRORS: Regex = Regex::new("^blk_update_request: ([a-z A-Z/]+) error, dev ([a-z]+), sector ([0-9]+)$").unwrap();
         static ref MDRAID_DISK_FAIL: Regex = Regex::new(r"^md\/?.+: Disk failure on (sd[a-z]+[0-9]+), disabling device$").unwrap();
+        static ref MDRAID_RECOVERY_START: Regex = Regex::new(r"^md: md[0-9]+: recovery done").unwrap();
+        static ref MDRAID_RECOVERY_END: Regex = Regex::new(r"^md: recovery of RAID array md[0-9]+$").unwrap();
     }
 
     if TARGET_ERRORS.is_match(log_entry_str) {
@@ -212,6 +220,16 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
             None => String::from(""),
             Some(ret) => ret,
         };
+    } else if MDRAID_RECOVERY_START.is_match(log_entry_str) {
+        log = true;
+        source_man = "man 8 mdadm";
+        priority = sdjournal::JournalPriority::Notice;
+        state = "rebuilding";
+    } else if MDRAID_RECOVERY_END.is_match(log_entry_str) {
+        log = true;
+        source_man = "man 8 mdadm";
+        priority = sdjournal::JournalPriority::Notice;
+        state = "rebuilt";
     }
 
     // Log the additional information to the journal
