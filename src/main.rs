@@ -124,7 +124,6 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     //
     // This is horribly error prone
     // and we really need to add structured data to the error messages themselves.
-    let message = "Storage error addendum";
     let source = "kernel";
     let mut source_man = "";
     let mut log = false;
@@ -149,6 +148,8 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         }
     }
 
+    let message = format!("Storage error addendum for ({})", log_entry_str);
+
     /*
 
     Sample journal message to UA
@@ -158,11 +159,15 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     blk_update_request: critical medium error, dev sdr, sector 4656
     Buffer I/O error on dev sdr, logical block 582, async page read
 
+    Sample mdraid disk failure
+    "md/raid1:md0: Disk failure on sdg1, disabling device.
+
     */
 
     lazy_static! {
         static ref UA_MSG: Regex = Regex::new("^[a-z]+ ([0-9:]+): Warning! Received an indication that the (.+)").unwrap();
         static ref TARGET_ERRORS: Regex = Regex::new("^blk_update_request: ([a-z A-Z/]+) error, dev ([a-z]+), sector ([0-9]+)$").unwrap();
+        static ref MDRAID_DISK_FAIL: Regex = Regex::new(r"^md\/?.+: Disk failure on (sd[a-z]+[0-9]+), disabling device$").unwrap();
     }
 
     if TARGET_ERRORS.is_match(log_entry_str) {
@@ -195,16 +200,31 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
             None => String::from(""),
             Some(ret) => ret,
         };
+    } else if MDRAID_DISK_FAIL.is_match(log_entry_str) {
+        log = true;
+        source_man = "man 8 mdadm";
+        priority = sdjournal::JournalPriority::Alert;
+        state = "degraded";
+        let m = MDRAID_DISK_FAIL.captures(log_entry_str).unwrap();
+        device = String::from(&m[1]);
+        let device_id_lookup = id_for_path_id(device.as_str());
+        device_id = match device_id_lookup {
+            None => String::from(""),
+            Some(ret) => ret,
+        };
     }
 
     // Log the additional information to the journal
     if log {
         let result = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                   message, source, source_man, device.as_str(), device_id.as_str(),
+                                                   message.as_str(), source,
+                                                   source_man,
+                                                   device.as_str(),
+                                                   device_id.as_str(),
                                                    state, priority, details);
 
         match result {
-            Ok(_) => println!("DEBUG: Added an annotated journal entry!"),
+            Ok(_) => (),
             Err(result) => println!("Error adding journal entry: {}", result),
         }
     }
