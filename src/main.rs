@@ -343,6 +343,7 @@ fn main() {
                 match udev.receive_event() {
                     Some(event) => {
                         process_udev_entry(&event);
+                        /*
                         println!("{}: {} {} (subsystem={}, sysname={}, devtype={})",
                                  event.sequence_number(),
                                  event.event_type(),
@@ -350,6 +351,7 @@ fn main() {
                                  event.subsystem().to_str().unwrap_or("unknown subsystem"),
                                  event.sysname().to_str().unwrap_or(""),
                                  event.devtype().map_or("", |s| { s.to_str().unwrap_or("") }));
+                        */
                     }
                     None => {
                         break;
