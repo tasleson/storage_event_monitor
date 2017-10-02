@@ -173,7 +173,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     lazy_static! {
         static ref UA_MSG: Regex = Regex::new("^[a-z]+ ([0-9:]+): Warning! Received an indication that the (.+)").unwrap();
         static ref TARGET_ERRORS: Regex = Regex::new("^blk_update_request: ([a-z A-Z/]+) error, dev ([a-z]+), sector ([0-9]+)$").unwrap();
-        static ref MDRAID_DISK_FAIL: Regex = Regex::new(r"^md\/?.+: Disk failure on (sd[a-z]+[0-9]+), disabling device$").unwrap();
+        static ref MDRAID_DISK_FAIL: Regex = Regex::new(r"^md.+: Disk failure on (sd[a-z]+([0-9]+)?), disabling device").unwrap();
         static ref MDRAID_RECOVERY_START: Regex = Regex::new(r"^md: md[0-9]+: recovery done").unwrap();
         static ref MDRAID_RECOVERY_END: Regex = Regex::new(r"^md: recovery of RAID array md[0-9]+$").unwrap();
     }
