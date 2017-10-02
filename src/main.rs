@@ -350,20 +350,10 @@ fn main() {
         if fds[1].revents != 0 {
             check_revents_and_exit(fds[1].revents, "Error in journal revents");
 
-            // Process journal entries, need to figure out why we cannot use the iterator as we
-            // are getting an error from the borrow checker about journal getting moved!
-            loop {
-                let entry = journal.get_next();
+            for entry in &mut journal {
                 match entry {
-                    Some(entry) => {
-                        match entry {
-                            Ok(entry) => process_journal_entry(&entry),
-                            Err(e) => println!("Error retrieving the journal entry: {}", e),
-                        }
-                    }
-                    None => {
-                        break;
-                    }
+                    Ok(entry) => process_journal_entry(&entry),
+                    Err(e) => println!("Error retrieving the journal entry: {}", e),
                 }
             }
         }
