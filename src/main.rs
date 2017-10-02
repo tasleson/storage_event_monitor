@@ -215,7 +215,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         state = "degraded";
         let m = MDRAID_DISK_FAIL.captures(log_entry_str).unwrap();
         device = String::from(&m[1]);
-        let device_id_lookup = id_for_path_id(device.as_str());
+        let device_id_lookup = id_for_devnode(device.as_str());
         device_id = match device_id_lookup {
             None => String::from(""),
             Some(ret) => ret,
