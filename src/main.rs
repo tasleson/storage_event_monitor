@@ -246,8 +246,6 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
             Err(result) => println!("Error adding journal entry: {}", result),
         }
     }
-
-    println!("DEBUG: JOURNAL_ENTRY({})", log_entry);
 }
 
 fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: &str) {
