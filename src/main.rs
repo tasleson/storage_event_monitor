@@ -148,7 +148,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         }
     }
 
-    let message = format!("Storage error addendum for ({})", log_entry_str);
+    let message = format!("Storage addendum for ({})", log_entry_str);
 
     /*
 
