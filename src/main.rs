@@ -304,6 +304,17 @@ fn main() {
     journal.seek_tail().expect("Unable to seek to end of journal!");
 
 
+    // Even though we ask to seek to the end, we still end up with journal entries to process
+    // that existed before, lets drain whatever is in the journal before we enter the main event
+    // loop.
+    for entry in &mut journal {
+        match entry {
+            Ok(entry) => process_journal_entry(&entry),
+            Err(e) => println!("Error retrieving the journal entry: {}", e),
+        }
+    }
+
+
     // Setup a connection for udev events for block devices
     let context = libudev::Context::new().unwrap();
     let mut monitor = libudev::Monitor::new(&context).unwrap();
