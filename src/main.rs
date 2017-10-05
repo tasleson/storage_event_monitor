@@ -57,14 +57,12 @@ enum IdLookup {
 }
 
 fn fetch_durable_name(device: &libudev::Device) -> Option<String> {
-    let mut wwid = device.property_value("ID_WWN");
+    let wwid = device.property_value("ID_WWN");
     match wwid {
         Some(w) => return Some(format!("WWID: {}", String::from(w.to_str().unwrap()))),
         None => {
-            wwid = device.property_value("ID_SERIAL_SHORT");
-            match wwid {
-                Some(w) => return Some(format!("SN: {}", String::from(w.to_str().unwrap()))),
-                None => ()
+            if let Some(sn) = device.property_value("ID_SERIAL_SHORT") {
+                return Some(format!("SN: {}", String::from(sn.to_str().unwrap())));
             }
         }
     }
