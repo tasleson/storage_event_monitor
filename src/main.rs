@@ -215,34 +215,27 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
 
     // Log the additional information to the journal
     if log {
-        let result = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                   message.as_str(), source,
-                                                   source_man,
-                                                   device.as_str(),
-                                                   device_id.as_str(),
-                                                   state, priority, details);
-
-        match result {
-            Ok(_) => (),
-            Err(result) => println!("Error adding journal entry: {}", result),
+        if let Err(result) = sdjournal::send_journal_basic(MSG_STORAGE_ID,
+                                                           message.as_str(), source,
+                                                           source_man, device.as_str(),
+                                                           device_id.as_str(), state,
+                                                           priority, details) {
+            println!("Error adding journal entry: {}", result);
         }
     }
 }
 
 fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: &str) {
-    let result = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                               format!("Annotation: Storage device {}", msg).as_str(),
-                                               "storage_event_monitor",
-                                               "",
-                                               &String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
-                                               durable_name,
-                                               "discovery",
-                                               sdjournal::JournalPriority::Info,
-                                               String::from(""));
-
-    match result {
-        Ok(_) => (),
-        Err(result) => println!("Error adding journal entry: {}", result),
+    if let Err(result) =  sdjournal::send_journal_basic(MSG_STORAGE_ID,
+                                                        format!("Annotation: Storage device {}", msg).as_str(),
+                                                        "storage_event_monitor",
+                                                        "",
+                                                        &String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
+                                                        durable_name,
+                                                        "discovery",
+                                                        sdjournal::JournalPriority::Info,
+                                                        String::from("")) {
+        println!("Error adding journal entry: {}", result);
     }
 }
 
@@ -251,14 +244,9 @@ fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name
 fn process_udev_entry(event: &libudev::Event) {
     match event.event_type() {
         libudev::EventType::Add => {
-            let durable_name = fetch_durable_name(event.device());
-
-            match durable_name {
-                Some(name) => {
-                    // Add annotated journal entry
-                    log_disk_add_remove(event.device(), "added", name.as_str());
-                }
-                None => ()
+            if let Some(name) = fetch_durable_name(event.device()) {
+                // Add annotated journal entry
+                log_disk_add_remove(event.device(), "added", name.as_str());
             }
         }
         libudev::EventType::Remove => {
