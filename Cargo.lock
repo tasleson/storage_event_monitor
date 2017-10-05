@@ -78,7 +78,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "sdjournal"
 version = "0.1.0"
-source = "git+https://github.com/tasleson/sdjournal#844b6a72786ddd115bd806e52f6ae310b445c016"
+source = "git+https://github.com/tasleson/sdjournal#45019ccbac3b7e1e190f83cc4d7f2bf3bf5fd8e8"
 dependencies = [
  "libc 0.2.30 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
