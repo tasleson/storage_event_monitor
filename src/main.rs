@@ -226,15 +226,15 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
 }
 
 fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: &str) {
-    if let Err(result) =  sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                        format!("Annotation: Storage device {}", msg).as_str(),
-                                                        "storage_event_monitor",
-                                                        "",
-                                                        &String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
-                                                        durable_name,
-                                                        "discovery",
-                                                        sdjournal::JournalPriority::Info,
-                                                        String::from("")) {
+    if let Err(result) = sdjournal::send_journal_basic(MSG_STORAGE_ID,
+                                                       format!("Annotation: Storage device {}", msg).as_str(),
+                                                       "storage_event_monitor",
+                                                       "",
+                                                       &String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
+                                                       durable_name,
+                                                       "discovery",
+                                                       sdjournal::JournalPriority::Info,
+                                                       String::from("")) {
         println!("Error adding journal entry: {}", result);
     }
 }
