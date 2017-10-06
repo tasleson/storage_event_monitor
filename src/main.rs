@@ -183,8 +183,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         state = "failing";
 
         let m = TARGET_ERRORS.captures(log_entry_str).unwrap();
-        device = String::from(&m[1]);
-        device_id = id_for_devnode(device.as_str()).unwrap_or(String::from(""));
+        device_id = id_for_devnode(&m[1]).unwrap_or(String::from(""));
         details = format!("Device block {} is in question!", &m[3]);
     } else if UA_MSG.is_match(log_entry_str) {
         log = true;
