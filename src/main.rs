@@ -137,7 +137,6 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     }
 
     let log_entry = journal_entry.get("MESSAGE").unwrap();
-    let log_entry_str = log_entry.as_str();
 
     // Check to see if this entry is one we may have created
     if journal_entry.contains_key("MESSAGE_ID") {
@@ -146,7 +145,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         }
     }
 
-    let message = format!("Storage addendum for ({})", log_entry_str);
+    let message = format!("Storage addendum for ({})", &log_entry);
 
     /*
 
@@ -176,36 +175,36 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         static ref MDRAID_RECOVERY_END: Regex = Regex::new(r"^md: recovery of RAID array md[0-9]+$").unwrap();
     }
 
-    if TARGET_ERRORS.is_match(log_entry_str) {
+    if TARGET_ERRORS.is_match(&log_entry) {
         log = true;
         source_man = "see: block/blk-core.c";
         priority = sdjournal::JournalPriority::Critical;
         state = "failing";
 
-        let m = TARGET_ERRORS.captures(log_entry_str).unwrap();
+        let m = TARGET_ERRORS.captures(&log_entry).unwrap();
         device_id = id_for_devnode(&m[1]).unwrap_or(String::from(""));
         details = format!("Device block {} is in question!", &m[3]);
-    } else if UA_MSG.is_match(log_entry_str) {
+    } else if UA_MSG.is_match(&log_entry) {
         log = true;
         source_man = "see: drivers/scsi/scsi_error.c";
         priority = sdjournal::JournalPriority::Info;
         state = "discovery";
 
-        device = UA_MSG.captures(log_entry_str).map(|m| String::from(&m[1])).unwrap();
-        device_id = id_for_path_id(device.as_str()).unwrap_or(String::from(""));
-    } else if MDRAID_DISK_FAIL.is_match(log_entry_str) {
+        device = UA_MSG.captures(&log_entry).map(|m| String::from(&m[1])).unwrap();
+        device_id = id_for_path_id(&device).unwrap_or(String::from(""));
+    } else if MDRAID_DISK_FAIL.is_match(&log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Alert;
         state = "degraded";
-        device = MDRAID_DISK_FAIL.captures(log_entry_str).map(|m| String::from(&m[1])).unwrap();
-        device_id = id_for_devnode(device.as_str()).unwrap_or(String::from(""));
-    } else if MDRAID_RECOVERY_START.is_match(log_entry_str) {
+        device = MDRAID_DISK_FAIL.captures(&log_entry).map(|m| String::from(&m[1])).unwrap();
+        device_id = id_for_devnode(&device).unwrap_or(String::from(""));
+    } else if MDRAID_RECOVERY_START.is_match(&log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Notice;
         state = "rebuilding";
-    } else if MDRAID_RECOVERY_END.is_match(log_entry_str) {
+    } else if MDRAID_RECOVERY_END.is_match(&log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Notice;
@@ -215,9 +214,9 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     // Log the additional information to the journal
     if log {
         if let Err(result) = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                           message.as_str(), source,
-                                                           source_man, device.as_str(),
-                                                           device_id.as_str(), state,
+                                                           &message, source,
+                                                           source_man, &device,
+                                                           &device_id, state,
                                                            priority, details) {
             println!("Error adding journal entry: {}", result);
         }
@@ -226,7 +225,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
 
 fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: &str) {
     if let Err(result) = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                       format!("Annotation: Storage device {}", msg).as_str(),
+                                                       &format!("Annotation: Storage device {}", msg),
                                                        "storage_event_monitor",
                                                        "",
                                                        &String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
@@ -245,12 +244,12 @@ fn process_udev_entry(event: &libudev::Event) {
         libudev::EventType::Add => {
             if let Some(name) = fetch_durable_name(event.device()) {
                 // Add annotated journal entry
-                log_disk_add_remove(event.device(), "added", name.as_str());
+                log_disk_add_remove(event.device(), "added", &name);
             }
         }
         libudev::EventType::Remove => {
             let durable_name = fetch_durable_name(event.device()).unwrap_or(String::from("Unknown"));
-            log_disk_add_remove(event.device(), "removed", durable_name.as_str());
+            log_disk_add_remove(event.device(), "removed", &durable_name);
         }
         _ => ()
     }
