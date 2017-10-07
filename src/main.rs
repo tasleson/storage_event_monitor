@@ -218,7 +218,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
                                                            source_man, &device,
                                                            &device_id, state,
                                                            priority, details) {
-            println!("Error adding journal entry: {}", result);
+            println!("Error adding journal entry: {:?}", result);
         }
     }
 }
@@ -233,7 +233,7 @@ fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name
                                                        "discovery",
                                                        sdjournal::JournalPriority::Info,
                                                        String::from("")) {
-        println!("Error adding journal entry: {}", result);
+        println!("Error adding journal entry: {:?}", result);
     }
 }
 
@@ -277,7 +277,7 @@ fn main() {
     for entry in &mut journal {
         match entry {
             Ok(entry) => process_journal_entry(&entry),
-            Err(e) => println!("Error retrieving the journal entry: {}", e),
+            Err(e) => println!("Error retrieving the journal entry: {:?}", e),
         }
     }
 
@@ -324,7 +324,7 @@ fn main() {
             for entry in &mut journal {
                 match entry {
                     Ok(entry) => process_journal_entry(&entry),
-                    Err(e) => println!("Error retrieving the journal entry: {}", e),
+                    Err(e) => println!("Error retrieving the journal entry: {:?}", e),
                 }
             }
         }
