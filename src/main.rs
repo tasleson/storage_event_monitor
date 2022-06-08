@@ -142,7 +142,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     if journal_entry.contains_key("MESSAGE_ID") && journal_entry.get("MESSAGE_ID").unwrap() == MSG_STORAGE_ID {
         return;
     }
-    
+
     let message = format!("Storage addendum for ({})", &log_entry);
 
     /*
@@ -173,36 +173,36 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         static ref MDRAID_RECOVERY_END: Regex = Regex::new(r"^md: recovery of RAID array md[0-9]+$").unwrap();
     }
 
-    if TARGET_ERRORS.is_match(&log_entry) {
+    if TARGET_ERRORS.is_match(log_entry) {
         log = true;
         source_man = "see: block/blk-core.c";
         priority = sdjournal::JournalPriority::Critical;
         state = "failing";
 
-        let m = TARGET_ERRORS.captures(&log_entry).unwrap();
+        let m = TARGET_ERRORS.captures(log_entry).unwrap();
         device_id = id_for_devnode(&m[1]).unwrap_or(String::from(""));
         details = format!("Device block {} is in question!", &m[3]);
-    } else if UA_MSG.is_match(&log_entry) {
+    } else if UA_MSG.is_match(log_entry) {
         log = true;
         source_man = "see: drivers/scsi/scsi_error.c";
         priority = sdjournal::JournalPriority::Info;
         state = "discovery";
 
-        device = UA_MSG.captures(&log_entry).map(|m| String::from(&m[1])).unwrap();
+        device = UA_MSG.captures(log_entry).map(|m| String::from(&m[1])).unwrap();
         device_id = id_for_path_id(&device).unwrap_or(String::from(""));
-    } else if MDRAID_DISK_FAIL.is_match(&log_entry) {
+    } else if MDRAID_DISK_FAIL.is_match(log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Alert;
         state = "degraded";
-        device = MDRAID_DISK_FAIL.captures(&log_entry).map(|m| String::from(&m[1])).unwrap();
+        device = MDRAID_DISK_FAIL.captures(log_entry).map(|m| String::from(&m[1])).unwrap();
         device_id = id_for_devnode(&device).unwrap_or(String::from(""));
-    } else if MDRAID_RECOVERY_START.is_match(&log_entry) {
+    } else if MDRAID_RECOVERY_START.is_match(log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Notice;
         state = "rebuilding";
-    } else if MDRAID_RECOVERY_END.is_match(&log_entry) {
+    } else if MDRAID_RECOVERY_END.is_match(log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Notice;
