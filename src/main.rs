@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-extern crate sdjournal;
 extern crate libc;
+extern crate sdjournal;
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
@@ -13,17 +13,17 @@ use std::process::Command;
 
 extern crate libudev;
 
+use libc::{POLLERR, POLLHUP, POLLIN, POLLNVAL};
 use regex::Regex;
-use std::ptr;
-use libc::{POLLIN, POLLERR, POLLHUP, POLLNVAL};
-use std::path::Path;
 use std::io::Error;
 use std::os::unix::io::AsRawFd;
+use std::path::Path;
 use std::process::exit;
+use std::ptr;
 
 pub static MSG_STORAGE_ID: &str = "3183267b90074a4595e91daef0e01462";
 
-use libc::{c_void, c_int, c_short, c_ulong};
+use libc::{c_int, c_short, c_ulong, c_void};
 
 #[repr(C)]
 struct pollfd {
@@ -34,14 +34,19 @@ struct pollfd {
 
 #[repr(C)]
 struct sigset_t {
-    __private: c_void
+    __private: c_void,
 }
 
 #[allow(non_camel_case_types)]
 type nfds_t = c_ulong;
 
 extern "C" {
-    fn ppoll(fds: *mut pollfd, nfds: nfds_t, timeout_ts: *mut libc::timespec, sigmask: *const sigset_t) -> c_int;
+    fn ppoll(
+        fds: *mut pollfd,
+        nfds: nfds_t,
+        timeout_ts: *mut libc::timespec,
+        sigmask: *const sigset_t,
+    ) -> c_int;
 }
 
 fn udev_settle() {
@@ -90,7 +95,13 @@ fn id_lookup(search_name: &str, mode: IdLookup) -> Option<String> {
                 }
             }
             IdLookup::DevNode => {
-                let dev_node = String::from(device.devnode().unwrap_or_else(|| Path::new("")).to_str().unwrap_or(""));
+                let dev_node = String::from(
+                    device
+                        .devnode()
+                        .unwrap_or_else(|| Path::new(""))
+                        .to_str()
+                        .unwrap_or(""),
+                );
                 if dev_node == search_name || dev_node.ends_with(search_name) {
                     found = true;
                 }
@@ -139,7 +150,9 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     let log_entry = journal_entry.get("MESSAGE").unwrap();
 
     // Check to see if this entry is one we may have created
-    if journal_entry.contains_key("MESSAGE_ID") && journal_entry.get("MESSAGE_ID").unwrap() == MSG_STORAGE_ID {
+    if journal_entry.contains_key("MESSAGE_ID")
+        && journal_entry.get("MESSAGE_ID").unwrap() == MSG_STORAGE_ID
+    {
         return;
     }
 
@@ -166,11 +179,17 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     */
 
     lazy_static! {
-        static ref UA_MSG: Regex = Regex::new("^[a-z]+ ([0-9:]+): Warning! Received an indication that the (.+)").unwrap();
-        static ref TARGET_ERRORS: Regex = Regex::new("^blk_update_request: ([a-z A-Z/]+) error, dev ([a-z]+), sector ([0-9]+)$").unwrap();
-        static ref MDRAID_DISK_FAIL: Regex = Regex::new(r"^md.+: Disk failure on (sd[a-z]+([0-9]+)?), disabling device").unwrap();
-        static ref MDRAID_RECOVERY_START: Regex = Regex::new(r"^md: md[0-9]+: recovery done").unwrap();
-        static ref MDRAID_RECOVERY_END: Regex = Regex::new(r"^md: recovery of RAID array md[0-9]+$").unwrap();
+        static ref UA_MSG: Regex =
+            Regex::new("^[a-z]+ ([0-9:]+): Warning! Received an indication that the (.+)").unwrap();
+        static ref TARGET_ERRORS: Regex =
+            Regex::new("^blk_update_request: ([a-z A-Z/]+) error, dev ([a-z]+), sector ([0-9]+)$")
+                .unwrap();
+        static ref MDRAID_DISK_FAIL: Regex =
+            Regex::new(r"^md.+: Disk failure on (sd[a-z]+([0-9]+)?), disabling device").unwrap();
+        static ref MDRAID_RECOVERY_START: Regex =
+            Regex::new(r"^md: md[0-9]+: recovery done").unwrap();
+        static ref MDRAID_RECOVERY_END: Regex =
+            Regex::new(r"^md: recovery of RAID array md[0-9]+$").unwrap();
     }
 
     if TARGET_ERRORS.is_match(log_entry) {
@@ -188,14 +207,20 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         priority = sdjournal::JournalPriority::Info;
         state = "discovery";
 
-        device = UA_MSG.captures(log_entry).map(|m| String::from(&m[1])).unwrap();
+        device = UA_MSG
+            .captures(log_entry)
+            .map(|m| String::from(&m[1]))
+            .unwrap();
         device_id = id_for_path_id(&device).unwrap_or_else(|| String::from(""));
     } else if MDRAID_DISK_FAIL.is_match(log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Alert;
         state = "degraded";
-        device = MDRAID_DISK_FAIL.captures(log_entry).map(|m| String::from(&m[1])).unwrap();
+        device = MDRAID_DISK_FAIL
+            .captures(log_entry)
+            .map(|m| String::from(&m[1]))
+            .unwrap();
         device_id = id_for_devnode(&device).unwrap_or_else(|| String::from(""));
     } else if MDRAID_RECOVERY_START.is_match(log_entry) {
         log = true;
@@ -211,26 +236,40 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
 
     // Log the additional information to the journal
     if log {
-        if let Err(result) = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                           &message, source,
-                                                           source_man, &device,
-                                                           &device_id, state,
-                                                           priority, details) {
+        if let Err(result) = sdjournal::send_journal_basic(
+            MSG_STORAGE_ID,
+            &message,
+            source,
+            source_man,
+            &device,
+            &device_id,
+            state,
+            priority,
+            details,
+        ) {
             println!("Error adding journal entry: {:?}", result);
         }
     }
 }
 
 fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name: &str) {
-    if let Err(result) = sdjournal::send_journal_basic(MSG_STORAGE_ID,
-                                                       &format!("Annotation: Storage device {}", msg),
-                                                       "storage_event_monitor",
-                                                       "",
-                                                       &String::from(device.devnode().unwrap_or_else(|| Path::new("")).to_str().unwrap_or("Unknown")),
-                                                       durable_name,
-                                                       "discovery",
-                                                       sdjournal::JournalPriority::Info,
-                                                       String::from("")) {
+    if let Err(result) = sdjournal::send_journal_basic(
+        MSG_STORAGE_ID,
+        &format!("Annotation: Storage device {}", msg),
+        "storage_event_monitor",
+        "",
+        &String::from(
+            device
+                .devnode()
+                .unwrap_or_else(|| Path::new(""))
+                .to_str()
+                .unwrap_or("Unknown"),
+        ),
+        durable_name,
+        "discovery",
+        sdjournal::JournalPriority::Info,
+        String::from(""),
+    ) {
         println!("Error adding journal entry: {:?}", result);
     }
 }
@@ -246,10 +285,11 @@ fn process_udev_entry(event: &libudev::Event) {
             }
         }
         libudev::EventType::Remove => {
-            let durable_name = fetch_durable_name(event.device()).unwrap_or_else(|| String::from("Unknown"));
+            let durable_name =
+                fetch_durable_name(event.device()).unwrap_or_else(|| String::from("Unknown"));
             log_disk_add_remove(event.device(), "removed", &durable_name);
         }
-        _ => ()
+        _ => (),
     }
 }
 
@@ -266,8 +306,9 @@ fn main() {
     // We never want to block, so set the timeout to 0
     journal.timeout_us = 0;
     // Jump to the end as we cannot annotate old journal entries.
-    journal.seek_tail().expect("Unable to seek to end of journal!");
-
+    journal
+        .seek_tail()
+        .expect("Unable to seek to end of journal!");
 
     // Even though we ask to seek to the end, we still end up with journal entries to process
     // that existed before, lets drain whatever is in the journal before we enter the main event
@@ -279,20 +320,33 @@ fn main() {
         }
     }
 
-
     // Setup a connection for udev events for block devices
     let context = libudev::Context::new().unwrap();
     let mut monitor = libudev::Monitor::new(&context).unwrap();
     monitor.match_subsystem_devtype("block", "disk").unwrap();
     let mut udev = monitor.listen().unwrap();
 
-    let mut fds = vec!(pollfd { fd: udev.as_raw_fd(), events: POLLIN, revents: 0 },
-                       pollfd { fd: journal.as_raw_fd(), events: journal.get_events_bit_mask(), revents: 0 });
+    let mut fds = vec![
+        pollfd {
+            fd: udev.as_raw_fd(),
+            events: POLLIN,
+            revents: 0,
+        },
+        pollfd {
+            fd: journal.as_raw_fd(),
+            events: journal.get_events_bit_mask(),
+            revents: 0,
+        },
+    ];
 
     loop {
         let result = unsafe {
-            ppoll((&mut fds[..]).as_mut_ptr(), fds.len() as nfds_t,
-                  ptr::null_mut(), ptr::null())
+            ppoll(
+                (&mut fds[..]).as_mut_ptr(),
+                fds.len() as nfds_t,
+                ptr::null_mut(),
+                ptr::null(),
+            )
         };
 
         if result < 0 {
