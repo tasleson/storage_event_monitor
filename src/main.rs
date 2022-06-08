@@ -180,7 +180,7 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         state = "failing";
 
         let m = TARGET_ERRORS.captures(log_entry).unwrap();
-        device_id = id_for_devnode(&m[1]).unwrap_or(String::from(""));
+        device_id = id_for_devnode(&m[1]).unwrap_or_else(|| String::from(""));
         details = format!("Device block {} is in question!", &m[3]);
     } else if UA_MSG.is_match(log_entry) {
         log = true;
@@ -189,14 +189,14 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
         state = "discovery";
 
         device = UA_MSG.captures(log_entry).map(|m| String::from(&m[1])).unwrap();
-        device_id = id_for_path_id(&device).unwrap_or(String::from(""));
+        device_id = id_for_path_id(&device).unwrap_or_else(|| String::from(""));
     } else if MDRAID_DISK_FAIL.is_match(log_entry) {
         log = true;
         source_man = "man 8 mdadm";
         priority = sdjournal::JournalPriority::Alert;
         state = "degraded";
         device = MDRAID_DISK_FAIL.captures(log_entry).map(|m| String::from(&m[1])).unwrap();
-        device_id = id_for_devnode(&device).unwrap_or(String::from(""));
+        device_id = id_for_devnode(&device).unwrap_or_else(|| String::from(""));
     } else if MDRAID_RECOVERY_START.is_match(log_entry) {
         log = true;
         source_man = "man 8 mdadm";
@@ -226,7 +226,7 @@ fn log_disk_add_remove(device: &libudev::Device, msg: &'static str, durable_name
                                                        &format!("Annotation: Storage device {}", msg),
                                                        "storage_event_monitor",
                                                        "",
-                                                       &String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or("Unknown")),
+                                                       &String::from(device.devnode().unwrap_or_else(|| Path::new("")).to_str().unwrap_or("Unknown")),
                                                        durable_name,
                                                        "discovery",
                                                        sdjournal::JournalPriority::Info,
@@ -246,7 +246,7 @@ fn process_udev_entry(event: &libudev::Event) {
             }
         }
         libudev::EventType::Remove => {
-            let durable_name = fetch_durable_name(event.device()).unwrap_or(String::from("Unknown"));
+            let durable_name = fetch_durable_name(event.device()).unwrap_or_else(|| String::from("Unknown"));
             log_disk_add_remove(event.device(), "removed", &durable_name);
         }
         _ => ()
