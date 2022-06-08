@@ -6,7 +6,7 @@ authors = ["Tony Asleson <tasleson@redhat.com>"]
 [dependencies]
 sdjournal = { git = "https://github.com/tasleson/sdjournal" }
 # sdjournal = { path = "/home/tasleson/projects/ffi/sdjournal" }
-libc = "0.2.28"
-regex = "0.2"
-lazy_static = "0.2.8"
+libc = "0.2"
+regex = "1.5"
+lazy_static = "1.4"
 libudev = "0.2"
