@@ -90,7 +90,7 @@ fn id_lookup(search_name: &str, mode: IdLookup) -> Option<String> {
                 }
             }
             IdLookup::DevNode => {
-                let dev_node = String::from(device.devnode().unwrap_or(Path::new("")).to_str().unwrap_or(""));
+                let dev_node = String::from(device.devnode().unwrap_or_else(|| Path::new("")).to_str().unwrap_or(""));
                 if dev_node == search_name || dev_node.ends_with(search_name) {
                     found = true;
                 }
