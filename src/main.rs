@@ -21,7 +21,7 @@ use std::io::Error;
 use std::os::unix::io::AsRawFd;
 use std::process::exit;
 
-pub static MSG_STORAGE_ID: &'static str = "3183267b90074a4595e91daef0e01462";
+pub static MSG_STORAGE_ID: &str = "3183267b90074a4595e91daef0e01462";
 
 use libc::{c_void, c_int, c_short, c_ulong};
 
