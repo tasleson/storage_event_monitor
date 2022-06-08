@@ -304,15 +304,8 @@ fn main() {
             check_revents_and_exit(fds[0].revents, "Error in udev revents");
 
             // Process udev
-            loop {
-                match udev.receive_event() {
-                    Some(event) => {
-                        process_udev_entry(&event);
-                    }
-                    None => {
-                        break;
-                    }
-                };
+            while let Some(event) = udev.receive_event() {
+                process_udev_entry(&event);
             }
         }
 
