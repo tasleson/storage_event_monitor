@@ -139,12 +139,10 @@ fn process_journal_entry(journal_entry: &HashMap<String, String>) {
     let log_entry = journal_entry.get("MESSAGE").unwrap();
 
     // Check to see if this entry is one we may have created
-    if journal_entry.contains_key("MESSAGE_ID") {
-        if journal_entry.get("MESSAGE_ID").unwrap() == MSG_STORAGE_ID {
-            return;
-        }
+    if journal_entry.contains_key("MESSAGE_ID") && journal_entry.get("MESSAGE_ID").unwrap() == MSG_STORAGE_ID {
+        return;
     }
-
+    
     let message = format!("Storage addendum for ({})", &log_entry);
 
     /*
